@@ -1,0 +1,81 @@
+/*!
+ * Bootstrap v3.3.1 (http://getbootstrap.com)
+ * Copyright 2011-2014 Twitter, Inc.
+ * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
+ */
+
+/*! normalize.css v3.0.2 | MIT License | git.io/normalize */
+
+
+
+#div-wrapper {
+    white-space: nowrap;
+    max-width: 99%;
+}
+
+.single-div {
+    width: 95%;
+    display: inline-block;
+    text-align: center;
+    vertical-align: top;
+    margin: 1% 1% 1% 1%; 
+    white-space: normal;
+	height: auto;
+ 
+}
+
+/* Mobile */
+@media screen and (max-width: 480px) {
+
+    .single-div {
+        display: block;
+        width: 65%;
+        margin: 2% 2% 2% 2%; 
+
+    }
+
+}
+
+/* Smartphones (portrait and landscape) ----------- 
+@media only screen and (min-device-width : 320px) and (max-device-width : 480px) {
+/* Styles 
+}*/
+
+
+/* iPads (portrait and landscape) ----------- */
+@media only screen and (min-device-width : 768px) and (max-device-width : 1024px) {
+/* Styles */
+    .single-div {
+        display: block;
+        width: 85%;
+        margin: 0 auto;
+
+    }
+	
+	.single-div-box {
+        padding: 5px;
+        width: 33%;
+
+    }
+
+}
+
+
+/* Desktops and laptops ----------- */
+@media only screen and (min-width : 1224px) {
+/* Styles */
+}
+
+/* Large screens ----------- */
+@media only screen and (min-width : 1824px) {
+/* Styles */
+}
+
+/* iPhone 4 ----------- */
+@media
+only screen and (-webkit-min-device-pixel-ratio : 1.5), only screen and (min-device-pixel-ratio : 1.5) {
+/* Styles */
+}
+
+
+/*# sourceMappingURL=bootstrap.css.map */
