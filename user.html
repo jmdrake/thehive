@@ -1,0 +1,104 @@
+<html>
+    <head>
+        <meta name="viewport" content="initial-scale=1, maximum-scale=1">
+
+        <!-- Imported Javascript -->
+        <script src="//cdn.jsdelivr.net/pouchdb/latest/pouchdb.min.js"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="//code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+        <script src="//cdn.jsdelivr.net/webshim/1.14.5/polyfiller.js"></script>
+        <script>
+            webshims.setOptions('forms-ext', {types: 'date'});
+            webshims.polyfill('forms forms-ext');
+        </script>
+        
+        <!-- Imported stylesheets -->
+        <link rel="stylesheet" href="//code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">  
+
+        <!-- Local Javascript -->
+        <script src="user.js"></script>
+        <style>
+        #content {
+            background-image: url(bee6.jpg);
+            background-position: left top;
+            background-repeat: no-repeat;
+            padding: 15px;
+            height : 800px;
+        }
+        #header{
+            color : white;
+            margin-left: auto;
+            margin-right: auto;
+            width: 75%;
+            text-align : center;
+        }
+        </style>
+    </head>
+    <body>
+        <div id="content">
+            <div id="header" style="width:100%">
+                <img id = "logo" style="margin:0px auto;display:block" src="thehive.jpg"/>
+                <div>The Hive is a a personal network that let's you collaborate with friends and family to reach mutual financial goals.  Login or Register below to get started.
+            </div>
+            </div>
+            <div data-role="collapsible" id="login">
+            <h1>Login</h1>
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="userid">Username:</label>
+            	<input type="text" name="userid" id="userid" value="" placeholder="Username"/>
+            </div>
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="password">Password:</label>
+            	<input type="password" name="password" id="password" value="" placeholder="Password"/>
+            </div>            
+            <div><button onclick="login(); return(false)">Login</button></div>
+        </div>
+            <div data-role="collapsible" id="register">
+            <h1>Register</h1>
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="userid">Username:</label>
+            	<input type="text" name="userid" id="userid" value="" placeholder="Username"/>
+            </div>
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="password">Password:</label>
+            	<input type="password" name="userid" id="password" value="" placeholder="Password"/>
+            </div>            
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="firstname">First Name:</label>
+            	<input type="text" name="firstname" id="firstname" value="" placeholder="First Name"/>
+            </div>            
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="lastname">Last Name:</label>
+            	<input type="text" name="lastname" id="lastname" value="" placeholder="Last Name"/>
+            </div>            
+            <div class="pure-control-group">
+                <input id="email" type="email" placeholder="Email Address">
+            </div>
+            <div data-role="fieldcontain" class="ui-hide-label">
+            	<label for="networth">Net Worth:</label>
+            	<input type="text" name="networth" id="networth" value="" placeholder="Networth"/>
+            </div>
+            <div data-role="fieldcontain">
+            	<label for="dob">Date of Birth:</label>
+            	<input type="date" name="dob" id="dob" value="" placeholder="DOB"/>
+            </div>            
+            <div>
+                <fieldset class="ui-field-contain">
+                    <label for="marital">Marital Status</label>
+                    <select name="marital" id="marital">
+                      <option value="single">Single</option>
+                      <option value="married">Married</option>
+                    </select>
+                </fieldset>
+            </div>
+            <div><button onclick="register(); return(false)">Register</button></div>
+        </div>            
+        </div>
+        <script>
+            if(screen.width < 800) {
+                $("#logo").attr("width", "320px");
+            }
+            //$("#logo").show();
+        </script>
+    </body>
+</html>
