@@ -1,0 +1,72 @@
+header{
+  background:#333;
+  color:#fff;
+  padding:20px;
+  position:relative;
+  font-family:"Century Gothic";
+}
+h2{
+  font-size:25px;
+  font-family:"Century Gothic";
+}
+.site-title{
+  margin-left:100px;
+  font-size:1rem;
+  
+}
+.nav-toggle{
+  position: absolute;
+  top:23px;
+  cursor: pointer;
+}
+.nav-item nav-action{
+    border-color: blue;
+}
+a{
+ color:#fff;
+ text-decoration:none;
+}
+li:hover{
+    background-color: grey;
+}
+nav li{
+  list-style:none;
+  padding : .2em;
+  border : 5px;
+}
+.main-navigation{
+  position:fixed;
+  top:0;
+  left:0;
+  width:13em;
+  height:100%;
+  background:#222;
+  text-align:right;
+  -webkit-transform:translateX(-150%);
+      -ms-transform:translateX(-150%);
+          transform:translateX(-150%);
+  -webkit-transition:-webkit-transform 0.6s ease;
+          transition:transform 0.6s ease;
+}
+.main-navigation.open{
+  -webkit-transform: translateX(0);
+      -ms-transform: translateX(0);
+          transform: translateX(0);
+}
+.main-navigation .nav-toggle {
+  right: 5%;
+  top: 5%;
+}
+
+.main-navigation ul{
+  margin: 0;
+  padding: 0;
+  
+}
+.main-navigation ul a{
+  padding: 10px 20px;
+  display: block;
+}
+.page{
+    display: none;
+}

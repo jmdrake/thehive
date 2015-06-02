@@ -1,56 +1,93 @@
 var userid = localStorage.getItem("userid");
 var user = JSON.parse(localStorage.getItem("user"));
+
 var colonyid = undefined;
+
+var clouddb = "https://projecthive.iriscouch.com/";
+
 var users = new PouchDB("hiveusers");
+var remusers = new PouchDB(clouddb + "hiveusers");
+
 var colonies = new PouchDB("hivecolonies");
+var remcolonies = new PouchDB(clouddb + "hivecolonies");
+
 var hives = new PouchDB("hivehives");
+var remhives = new PouchDB(clouddb + "hivehives")
+
 var families = new PouchDB("hivefamilies");
+var remfamilies = new PouchDB(clouddb + "hivefamilies");
+
 var currency = "$0,0.00";
 
-var dbserver = "https://projecthive.iriscouch.com/";
-var remusers = new PouchDB(dbserver + "hiveusers");
-var remcolonies = new PouchDB(dbserver + "hivecolonies");
-var remhives = new PouchDB(dbserver + "hivehives");
-var remfamilies = new PouchDB(dbserver + "hivefamilies");
+var userddoc = {
+    _id : "_design/my_index",
+    views : {
+        by_family : {
+            map: function (doc) { emit(doc.family); }.toString()
+        }
+    }
+}
 
-families.replicate.from(remfamilies).on('complete', function(){
-    console.log("Family database replicated");
-    colonies.replicate.from(remcolonies).on('complete', function () {
-        console.log("Colony database replicated");
-        hives.replicate.from(remhives).on('complete', function () {
-            console.log("Hives database replicated");
-            main();
-        })
-    })        
-}).on('error', function (err) {
-    console.log("Error replicating user database");
-    main();
-});
+remusers.put(userddoc);
+
+remusers.query('my_index/by_family', {limit:0});
+
+var familyddoc = {
+    _id : "_design/my_index",
+    views : {
+        by_colony : {
+            map: function (doc) { emit(doc.colony); }.toString()
+        }
+    }
+}
+
+remfamilies.put(familyddoc);
+
+remfamilies.query('my_index/by_colony', {limit:0});
+
+var colonyddoc = {
+    _id : "_design/my_index",
+    views : {
+        by_hive : {
+            map: function (doc) { emit(doc.hive); }.toString()
+        }
+    }
+}
+
+remcolonies.put(colonyddoc);
+
+remcolonies.query('my_index/by_hive', {limit:0});
+
 
 function main(){
-    $("userinfo").html(user.fname);
-    if(user.family != undefined) {
-        families.get(user.family).then(function(family){
-            updatefamilyinfo(family);
-            if(family.colony != undefined) {
-                colonies.get(family.colony).then(function(colony){
-                    updatecolonyinfo(colony);
-                    if(colony.hive != undefined) {
-                        hives.get(colony.hive).then(function(hive){
-                            updatehiveinfo(hive)
-                        })
-                    } else {
-                        sethiveform(colony._id)
-                    }
-                })
-            } else {
-                setcolonyform(family._id)
-            }
-        })
-    } else {
-        setfamilyform(user._id)
-    }
+    // If not logged in, redirect to login / register page
+    if(user == undefined)
+        window.location.replace("user.html");
+        
+    // Set the user name on the welcome screen
+    $("#userinfo").html(user.fname);
     
+    // Load local data
+    if(user.family != undefined) {
+        updatefamilyinfo(user.family);
+        localStorage.setItem("familyid", user.family);
+    } else {
+        setfamilyform(user.family)
+    }   
+        
+    // Sync cloud data
+    families.sync(clouddb + "hivefamilies").on('complete', function(info){
+        var family = JSON.parse(localStorage.getItem("family"));
+        if(family != null) updatefamilyinfo(family._id);
+        colonies.sync(clouddb + "hivecolonies").on('complete', function(info){
+            var colony = JSON.parse(localStorage.getItem("colony"));
+            if(colony != null) updatecolonyinfo(colony._id);
+            hives.sync(clouddb + "hivehives").on('complete', function(info){
+                var hive = JSON.parse(localStorage.getItem("hive"))
+                if(hive != null) updatehiveinfo(hive._id);
+            })
+        })
+    }) 
 }
 
 // Controller functions:
@@ -66,52 +103,67 @@ function addfamily(){
     var newfamily = {
         _id : $("#familyid").val(),
         name : $("#familyname").val(),
-        manager : userid
+        manager : userid,
+        networth : user.networth
     };
     
-    newfamily.newworth = user.networth;
-    user.family = newfamily._id;
-    users.put(user).then(function(res) {
-        updatefamilyinfo(newfamily);
-        setcolonyform(userid);
+    remfamilies.put(newfamily).then(function(res){
+        remusers.get(userid).then(function(userdoc){
+            userdoc.family = newfamily._id;
+            remusers.put(userdoc).then(function(res){
+                user = userdoc;
+                localStorage.setItem("user", JSON.stringify(user));
+                updatefamilyinfo(newfamily._id);
+                setcolonyform(newfamily._id);
+            })
+        })
     }).catch(function(err) {
-        alert("Error adding family : " + err)
+        if(err.status="409") {
+            alert("Error adding family.  Family with ID " + newfamily._id + " already exixsts.");
+            console.log("Error adding family : " + err)
+        } else {
+            alert("Error adding family " + err);
+            console.log("Error adding family : " + err)
+        }
     })
 }
 
 function joinfamily(){
     // add familyid to userdoc then update family information
     var familyid = $("#familyselect").val();
-    user.family = familyid;
-    users.put(user).then(function(res) {
-        families.get(familyid).then(function(familydoc) {
-            updatefamilyinfo(familydoc)
-        });
-        remusers.put(user);
+    remusers.get(userid).then(function(userdoc){
+        userdoc.family = familyid;
+        user = userdoc;
+        localStorage.setItem("user", JSON.stringify(user));
+        remusers.put(userdoc).then(function(res){
+            families.get(familyid).then(function(familydoc) {
+                updatefamilyinfo(familyid)
+            });
+        })
     }).catch(function(err){
-        alert("Error joining family : " + err)
+        console.log("Error joining family : " + err);
     })
 }
 
 function addcolony(){
     var familyid = $("#familyid").val();
-    var newcolony = {
-        _id : $("#colonyid").val(),
-        name : $("#colonyname").val(),
-        manager : userid
-    };
+    var colonyid = $("#colonyid").val();
     
-    families.get(familyid).then(function(familydoc){
-        newcolony.networth = familydoc.networth;
-        familydoc.colony = newcolony._id;
-        families.put(familydoc).then(function(res){
-            updatecolonyinfo(newcolony);
-            sethiveform(familyid);
-        });
-        remfamilies.put(familydoc);
-    }).catch(function(err){
-        alert("Error adding colony : " + err)
-    })
+    remfamilies.get(familyid).then(function(familydoc){
+        var newcolony = {
+            _id : colonyid,
+            name : $("#colonyname").val(),
+            manager : userid,
+            networth : familydoc.networth
+        };
+        remcolonies.put(newcolony).then(function(res){
+            familydoc.colony = newcolony._id;
+            remfamilies.put(familydoc).then(function(res){
+                updatecolonyinfo(newcolony._id);
+                sethiveform(newcolony._id)
+            }).catch(function(err){console.log("Add Colony Err 1 : " + err)})
+        }).catch(function(err){console.log("Add Colony Err 2 : " + err)})
+    }).catch(function(err){console.log("Add Colony Err 3 " + err)})
 }
 
 function joincolony(){
@@ -121,45 +173,41 @@ function joincolony(){
         familydoc.colony = colonyid;
         families.put(familydoc).then(function(res){
             colonies.get(colonyid).then(function(colonydoc){
-                updatecolonyinfo(colonydoc)
+                updatecolonyinfo(colonyid)
             })
         });
-        remfamilies.put(familydoc);
     }).catch(function(err){
-        alert("Error joining colony : " + err)
+        console.log("Error joining colony : " + err)
     })
 }
-    
+
 function addhive(){
     var colonyid = $("#colonyid").val();
-    var newhive = {
-        _id : $("#hiveid").val(),
-        name : $("#hivename").val(),
-        manager : userid
-    };
-    
-    colonies.get(colonyid).then(function(colonydoc){
-        colonydoc.hive = newhive._id;
-        colonies.put(colonydoc).then(function(res) {
-            updatehiveinfo(newhive);
-        });
-        remcolonies.put(colonydoc);
-    }).catch(function(err) {
-        alert("Error adding hive : " + err)
-    });
+    remcolonies.get(colonyid).then(function(colonydoc){
+        var newhive = {
+            _id : $("#hiveid").val(),
+            name : $("#hivename").val(),
+            manager : userid,
+            networth : colonydoc.networth
+        };
+        remhives.put(newhive).then(function(res){
+            colonydoc.hive = newhive._id;
+            remcolonies.put(colonydoc).then(function(res){
+                updatehiveinfo(newhive._id);
+            }).catch(function(err){console.log("Add Hive Err 1 : " + err)})
+        }).catch(function(err){console.log("Add Hive Err 2 : " + err)})
+    }).catch(function(err){console.log("Add Hive Err 3 : " + err)})
 }
+
 
 function joinhive(){
     var hiveid = $("#hiveselect").val();
     var colonyid = $("#colonyid").val();
-    colonies.get(colonyid).then(function(colonydoc){
+    remcolonies.get(colonyid).then(function(colonydoc){
         colonydoc.hive = hiveid;
-        colonies.put(colonydoc).then(function(res) {
-            hives.get(hiveid).then(function(hivedoc){
-                updatehiveinfo(hivedoc)
-            })
+        remcolonies.put(colonydoc).then(function(res) {
+            updatehiveinfo(hiveid)
         });
-        remcolonies.put(colonydoc);
     })
 }
 
@@ -175,102 +223,115 @@ function joinhive(){
 // newtextfield()
 // newselect()
 
+function fullname(doc)
+{
+    return doc.fname + " " + doc.lname;
+}
 
-function updatefamilyinfo(familydoc){
-    $("#familyinfo").html(
-        "<h1>Family Information</h1>" +
-        "<div>Family:" + familydoc.name + "</div>")
-    
-    remusers.get(familydoc.manager).then(function(userdoc){
-        $("#familyinfo").append("<div>Manager: " + userdoc.fname + " " + userdoc.lname + "</div>");
-    }).catch(function(err) {
-        alert("Error updating family info : " + err)
-    })
-    
-    $("#familyinfo").append("<div>Members In Family <ul id='memberlist'></ul></div>");
-    remusers.allDocs({include_docs : true}).then(function(result){
-        familydoc.networth = 0;
-        for(var i=0; i<result.rows.length; i++) {
-            if(result.rows[i].doc.family == familydoc._id) {
-                $("#memberlist").append("<li>" + result.rows[i].doc.fname + " " + result.rows[i].doc.lname + 
+function updatefamilyinfo(familyid){
+    remfamilies.get(familyid).then(function(familydoc){
+        // Display header
+        $("#familyinfo").html("<h1>Family Information</h1><div>Family : " + familydoc.name + "</div>");
+        
+        // Display family manager
+        remusers.get(familydoc.manager).then(function(userdoc){
+            $("#familyinfo").append("<div>Manager: " + fullname(userdoc) + "</div>")
+        })
+        
+        // Display family members
+        $("#familyinfo").append("<div>Members In Family <ul id='memberlist'></ul></div>");
+        remusers.query("my_index/by_family", {
+            key : familyid, 
+            include_docs : true
+        }).then(function(result){
+            var networth = 0;
+            for(var i=0; i < result.rows.length; i++) {
+                $("#memberlist").append("<li>" + result.rows[i].doc.fname + " " + result.rows[i].doc.lname +
                 ":" + numeral(result.rows[i].doc.networth).format(currency) + "</li>");
-                familydoc.networth += parseFloat(result.rows[i].doc.networth);
+                networth += parseFloat(result.rows[i].doc.networth);
             }
-        }
-        families.put(familydoc).then(function(res){
-            $("#familyinfo").append("<div>Total Networth: " + numeral(familydoc.networth).format(currency));
-            if(familydoc.colony != undefined)
-                colonies.get(familydoc.colony).then(function(colonydoc){
-                    updatecolonyinfo(colonydoc);
-                });
-            families.replicate.to(remfamilies).catch(function(err){console.log("Error updating families 5")})
-        }).catch(function(err){console.log("Error updating famiy info 2 : " + err)});
-    }).catch(function(err){alert("Error updating family info 3: " + err)});
-}
-
-function updatecolonyinfo(colonydoc){
-    $("#colonyinfo").html(
-        "<h1>Colony Information</h1>" +
-        "<div>Colony:" + colonydoc.name + "</div>")
-    
-    remusers.get(colonydoc.manager).then(function(userdoc){
-        $("#colonyinfo").append("<div>Manager: " + userdoc.fname + " " + userdoc.lname + "</div>");
-    }).catch(function(err) {
-        console.log("Error updating colonies 1 :"  + err)
-    })
-    
-    $("#colonyinfo").append("<div>Families In The Colony <ul id='familylist'></ul></div>");
-    families.allDocs({include_docs : true}).then(function(result){
-        colonydoc.networth = 0;
-        for(var i=0; i<result.rows.length; i++) {
-            if(result.rows[i].doc.colony == colonydoc._id) {
-                $("#familylist").append("<li>" + result.rows[i].doc.name + ":" + 
-                    numeral(result.rows[i].doc.networth).format(currency) + "</li>");
-                colonydoc.networth += result.rows[i].doc.networth;
-            }
-        }
-        // alert(colonydoc.networth);
-        colonies.put(colonydoc).then(function(res){
-            $("#colonyinfo").append("<div>Total Networth : " + numeral(colonydoc.networth).format(currency));
-            if(colonydoc.hive != undefined) {
-                hives.get(colonydoc.hive).then(function(hivedoc){
-                    updatehiveinfo(hivedoc);
-                })
-            }
-            colonies.replicate.to(remcolonies).catch(function(err){console.log("Error updating colonies 3" + err)})
+            $("#familyinfo").append("<div>Total Networth: " + numeral(networth).format(currency));
+            if(networth != familydoc.networth) {
+                familydoc.networth = networth;
+                remfamilies.put(familydoc).catch(function(err){console.log("Error updating family info : " + err)});
+            } 
         });
-    }).catch(function(err){console.log("Error updating colonies 2 : " + err)})
-}
-
-function updatehiveinfo(hivedoc){
-    $("#hiveinfo").html("<h1>Hive Information</h1>");
-    $("#hiveinfo").append("<div>Hive: " + hivedoc.name + "</div>");
-
-    remusers.get(hivedoc.manager).then(function(userdoc){
-        $("#hiveinfo").append("<div>Manager: (" + hivedoc.manager +") " + userdoc.fname + " " + userdoc.lname + "</div>");
-    }).catch(function(err) {
-        console.log("Error updating hives 1 : " + err)
-    })
-
-    $("#hiveinfo").append("<div>Colonies In Hive <ul id='colonylist'></ul></div>");
-    colonies.allDocs({include_docs : true}).then(function(result){
-        hivedoc.networth = 0;    
-        for(var i=0; i<result.rows.length; i++) {
-            if(result.rows[i].doc.hive == hivedoc._id) {
-                $("#colonylist").append("<li>" + result.rows[i].doc.name + ":" + 
-                    numeral(result.rows[i].doc.networth).format(currency) + "</li>");
-                hivedoc.networth += result.rows[i].doc.networth;
-            }
+        if(familydoc.colony != undefined) {
+            updatecolonyinfo(familydoc.colony);
+        } else {
+            setcolonyform(familyid)
         }
-        hives.put(hivedoc).then(function(res){
-            $("#hiveinfo").append("<div>Total Networth : " + numeral(hivedoc.networth).format(currency) + "</div>");
-        });
-        hives.replicate.to(remhives).catch(function(err){console.log("Error updating hives 3" + err)});
-    }).catch(function(err){console.log("Error updating hives 2 : " + err)})
+    }).catch(function(err){console.log("Error updating family info 2 : " + err + JSON.stringify(familyid))});
 }
+
+function updatecolonyinfo(colonyid){
+    remcolonies.get(colonyid).then(function(colonydoc){
+        // Display header
+        $("#colonyinfo").html("<h1>Colony Information</h1><div>Colony : " + colonydoc.name + "</div>");
+        
+        // Display colony manager
+        remusers.get(colonydoc.manager).then(function(userdoc){
+            $("#colonyinfo").append("<div>Manager: " + fullname(userdoc) + "</div>")
+        })
+        
+        // Display families
+        $("#colonyinfo").append("<div>Families in Colony <ul id='familylist'></ul></div>");
+        remfamilies.query("my_index/by_colony", {
+            key : colonyid, 
+            include_docs : true
+        }).then(function(result){
+            var networth = 0;
+            for(var i=0; i < result.rows.length; i++) {
+                $("#familylist").append("<li>" + result.rows[i].doc.name + 
+                ":" + numeral(result.rows[i].doc.networth).format(currency) + "</li>");
+                networth += parseFloat(result.rows[i].doc.networth);
+            }
+            $("#colonyinfo").append("<div>Total Networth: " + numeral(networth).format(currency));
+            if(networth != colonydoc.networth) {
+                colonydoc.networth = networth;
+                remcolonies.put(colonydoc).catch(function(err){console.log("Error updating colony info : " + err)});
+            } 
+        })
+        if(colonydoc.hive != undefined)
+            updatehiveinfo(colonydoc.hive)
+        else
+            sethiveform(colonydoc._id)
+    }).catch(function(err){console.log("Error updating colony info 2 : " + err + "ID >>>>> " + colonyid)});
+}
+
+function updatehiveinfo(hiveid){
+    remhives.get(hiveid).then(function(hivedoc){
+        // Display header
+        $("#hiveinfo").html("<h1>Hive Information</h1><div>Hive : " + hivedoc.name + "</div>");
+        
+        // Display hive manager
+        remusers.get(hivedoc.manager).then(function(userdoc){
+            $("#hiveinfo").append("<div>Manager: " + fullname(userdoc) + "</div>")
+        })
+        
+        // Display colonies
+        $("#hiveinfo").append("<div>Colonies in Hive <ul id='colonylist'></ul></div>");
+        remcolonies.query("my_index/by_hive", {
+            key : hiveid, 
+            include_docs : true
+        }).then(function(result){
+            var networth = 0;
+            for(var i=0; i < result.rows.length; i++) {
+                $("#colonylist").append("<li>" + result.rows[i].doc.name + 
+                ":" + numeral(result.rows[i].doc.networth).format(currency) + "</li>");
+                networth += parseFloat(result.rows[i].doc.networth);
+            }
+            $("#hiveinfo").append("<div>Total Networth: " + numeral(networth).format(currency));
+            if(networth != hivedoc.networth) {
+                hivedoc.networth = networth;
+                remhives.put(hivedoc).catch(function(err){console.log("Error updating hive info : " + err)});
+            } 
+        })
+    }).catch(function(err){console.log("Error updating hive info 2 : " + err +JSON.stringify(hiveid) )});
+}
+
 
 function setfamilyform(userid) {
-    console.log("Trace 4");
     $("#familyinfo").html("<h1>Family Information</h1>");
     $("#familyinfo").append(newcollapsible("addfamily", "btnAddFamily","Add New Family"));
     $("#addfamily").append(newform("newfamilyform"));
@@ -278,9 +339,9 @@ function setfamilyform(userid) {
     $("#newfamilyform").find("fieldset").append(newtextfield("familyname", "Famiy Name"));
     $("#newfamilyform").find("fieldset").append(newsubmit("addfamily(); return(false)", "Add Family"));
     
-    $("#familyinfo").append(newcollapsible("joinfamiy", "btnJoinFamily","Join Existing Family"));
-    $("#joinfamily").append(newform("joinfamiyform"));
-    $("#joinfamiyform").find("fieldset").append(newselect("familyselect","Family List"));
+    $("#familyinfo").append(newcollapsible("joinfamily", "btnJoinFamily","Join Existing Family"));
+    $("#joinfamily").append(newform("joinfamilyform"));
+    $("#joinfamilyform").find("fieldset").append(newselect("familyselect","Family List"));
     
     setupselect(families, "#familyselect");
 
@@ -294,7 +355,6 @@ function sethiveform(colonyid){
     $("#newhiveform").find("fieldset").append("<input type='hidden' name='colonyid' id='colonyid' value='" + colonyid + "'>")
     $("#newhiveform").find("fieldset").append(newtextfield("hiveid", "Hive ID"));
     $("#newhiveform").find("fieldset").append(newtextfield("hivename", "Hive Name"));
-    $("#newhiveform").find("fieldset").append(newtextfield("hivedescription", "Hive Description"));
     $("#newhiveform").find("fieldset").append(newsubmit("addhive(); return(false)", "Add Hive"));
     
     $("#hiveinfo").append(newcollapsible("joinhive", "btnJoinHive","Join Existing Hive"));
@@ -307,6 +367,7 @@ function sethiveform(colonyid){
 }
 
 function setcolonyform(familyid){
+    alert("Colony form family id : " + familyid);
     $("#colonyinfo").html("<h1>Colony Information</h1>");
     $("#colonyinfo").append(newcollapsible("addcolony", "btnAddColony","Add New colony"));
     $("#addcolony").append(newform("newcolonyform"));
@@ -362,3 +423,11 @@ function setupselect(docs, selecttag){
     })
 }
 
+function logout(){
+    localStorage.removeItem('userid'); 
+    localStorage.removeItem('user');
+    localStorage.removeItem('family');
+    localStorage.removeItem('colony');
+    localStorage.removeItem('hive');
+    window.location.replace('user.html');
+}
